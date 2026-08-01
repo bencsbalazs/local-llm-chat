@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qwen Chat - Local AI</title>
+    <!-- Highlight.js dark styles -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <!-- Local custom stylesheet -->
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" id="newChatBtn">
+          <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
+          New Chat
+        </button>
+        <button class="icon-btn" id="collapseSidebarBtn" title="Close sidebar">
+          <i data-lucide="panel-left" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div class="sidebar-group-title">Recent Chats</div>
+        <div id="chatHistoryList">
+          <div class="sidebar-item active-chat-item" id="currentChatTab">
+            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
+            Current Conversation
+          </div>
+          <div class="sidebar-item">
+            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
+            Python web app ideas
+          </div>
+          <div class="sidebar-item">
+            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
+            Machine learning intro
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="avatar-circle">U</div>
+          <span>Local User</span>
+        </div>
+        <button class="icon-btn" title="Settings">
+          <i data-lucide="settings" style="width: 18px; height: 18px;"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Navigation -->
+      <nav class="top-nav">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button class="toggle-sidebar-btn" id="expandSidebarBtn" style="display: none;" title="Open sidebar">
+            <i data-lucide="panel-left" style="width: 18px; height: 18px;"></i>
+          </button>
+          <div class="model-selector">
+            Qwen 2.5 (7B)
+            <i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Chat Container -->
+      <div class="chat-container" id="chatContainer">
+        <div class="chat-max-width" id="chatMaxWidth">
+          <!-- Empty State (Welcome Screen) -->
+          <div class="empty-state" id="emptyState">
+            <div class="empty-logo">Q</div>
+            <h2 class="empty-title">How can I help you today?</h2>
+            
+            <div class="suggestions-grid">
+              <div class="suggestion-card" data-prompt="Create a weekly full-body workout plan.">
+                <div class="suggestion-title">Create a workout plan</div>
+                <div class="suggestion-desc">for weekly full-body training</div>
+              </div>
+              <div class="suggestion-card" data-prompt="Explain quantum computing in simple terms for a child.">
+                <div class="suggestion-title">Explain quantum computing</div>
+                <div class="suggestion-desc">for a 10-year old child</div>
+              </div>
+              <div class="suggestion-card" data-prompt="Write a Python script to request data from an API and save it as a JSON file.">
+                <div class="suggestion-title">Help me debug or write a script</div>
+                <div class="suggestion-desc">in Python using standard libraries</div>
+              </div>
+              <div class="suggestion-card" data-prompt="Draft a polite email asking my manager for constructive feedback on my recent project.">
+                <div class="suggestion-title">Draft an email</div>
+                <div class="suggestion-desc">asking my manager for feedback</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Message Feed -->
+          <div id="messageFeed" style="display: flex; flex-direction: column; gap: 24px; width: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Input Footer -->
+      <footer class="input-area-wrapper">
+        <div class="chat-max-width">
+          <form id="promptForm">
+            <div class="input-container">
+              <textarea
+                aria-label="Message Qwen..."
+                id="promptInput"
+                class="chat-textarea"
+                placeholder="Message Qwen..."
+                rows="1"
+                required
+              ></textarea>
+              <button type="submit" class="icon-btn send-btn" id="submitBtn">
+                <i data-lucide="arrow-up" style="width: 18px; height: 18px;"></i>
+              </button>
+            </div>
+          </form>
+          <div class="disclaimer">
+            Qwen can make mistakes. Verify important info.
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Dependencies -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.379.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>
