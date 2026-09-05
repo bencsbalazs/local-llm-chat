@@ -1,0 +1,19 @@
+{
+  "app_title": "Local LLM Chat",
+  "theme_light": "Light",
+  "theme_dark": "Dark",
+  "theme_chrome": "Chrome",
+  "btn_new_chat": "New Chat",
+  "sidebar_recent": "Recent",
+  "chat_current": "Current Chat",
+  "user_local": "Local User",
+  "menu_settings": "Settings...",
+  "chat_empty_title": "How can I help today?",
+  "chat_input_placeholder": "Ask something...",
+  "chat_disclaimer": "The AI can make mistakes. Verify important information!",
+  "modal_title": "Server Settings",
+  "modal_api_url": "Prompt API URL",
+  "modal_model_name": "Model Name",
+  "btn_cancel": "Cancel",
+  "btn_save": "Save"
+}

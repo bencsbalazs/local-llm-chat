@@ -1,0 +1,19 @@
+{
+  "app_title": "Kohalik LLM vestlus",
+  "theme_light": "Hele",
+  "theme_dark": "Tume",
+  "theme_chrome": "Chrome",
+  "btn_new_chat": "Uus vestlus",
+  "sidebar_recent": "Hiljutised",
+  "chat_current": "Praegune vestlus",
+  "user_local": "Kohalik Kasutaja",
+  "menu_settings": "Seaded...",
+  "chat_empty_title": "Kuidas saan täna aidata?",
+  "chat_input_placeholder": "Küsi midagi...",
+  "chat_disclaimer": "AI võib teha vigu. Kontrolli olulist teavet!",
+  "modal_title": "Serveri seaded",
+  "modal_api_url": "Prompt API URL",
+  "modal_model_name": "Mudeli nimi",
+  "btn_cancel": "Tühista",
+  "btn_save": "Salvesta"
+}

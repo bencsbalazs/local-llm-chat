@@ -1,0 +1,19 @@
+{
+  "app_title": "Helyi LLM Chat",
+  "theme_light": "Világos",
+  "theme_dark": "Sötét",
+  "theme_chrome": "Chrome",
+  "btn_new_chat": "Új csevegés",
+  "sidebar_recent": "Legutóbbiak",
+  "chat_current": "Aktuális csevegés",
+  "user_local": "Helyi felhasználó",
+  "menu_settings": "Beállítások...",
+  "chat_empty_title": "Miben segíthetek ma?",
+  "chat_input_placeholder": "Kérdezz valamit...",
+  "chat_disclaimer": "Az AI hibázhat. Ellenőrizd a fontos információkat!",
+  "modal_title": "Szerver Beállítások",
+  "modal_api_url": "Prompt API URL",
+  "modal_model_name": "Modell Név",
+  "btn_cancel": "Mégse",
+  "btn_save": "Mentés"
+}

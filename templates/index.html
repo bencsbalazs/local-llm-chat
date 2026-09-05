@@ -1,134 +1,209 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-bs-theme="light" data-theme="chrome">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Qwen Chat - Local AI</title>
-    <!-- Highlight.js dark styles -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <!-- Local custom stylesheet -->
-    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" />
+    <title>Local LLM Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+    <!-- Highlight.js dark styles for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+
+    <!-- Dependencies for Markdown Parsing & Syntax Highlighting -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+
+    <!-- Inline theme.js to prevent flash of unstyled content -->
+    <script>
+      (function () {
+        const savedTheme = localStorage.getItem("llm-theme") || "chrome";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        const bsTheme = savedTheme === "light" || savedTheme === "chrome" ? "light" : "dark";
+        document.documentElement.setAttribute("data-bs-theme", bsTheme);
+      })();
+    </script>
   </head>
   <body>
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <button class="new-chat-btn" id="newChatBtn">
-          <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
-          New Chat
-        </button>
-        <button class="icon-btn" id="collapseSidebarBtn" title="Close sidebar">
-          <i data-lucide="panel-left" style="width: 18px; height: 18px;"></i>
-        </button>
-      </div>
-
-      <div class="sidebar-scroll">
-        <div class="sidebar-group-title">Recent Chats</div>
-        <div id="chatHistoryList">
-          <div class="sidebar-item active-chat-item" id="currentChatTab">
-            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
-            Current Conversation
-          </div>
-          <div class="sidebar-item">
-            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
-            Python web app ideas
-          </div>
-          <div class="sidebar-item">
-            <i data-lucide="message-square" style="width: 16px; height: 16px;"></i>
-            Machine learning intro
+    <div class="llm-app-wrapper d-flex flex-column" style="height: 100vh;">
+      <!-- Header -->
+      <header class="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-secondary-subtle header-container flex-shrink-0">
+        <div class="d-flex align-items-center gap-3">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-robot fs-4 text-primary logo-icon"></i>
+            <span class="fs-5 fw-bold" data-i18n="app_title">Local LLM Chat</span>
           </div>
         </div>
-      </div>
-
-      <div class="sidebar-footer">
-        <div class="user-profile">
-          <div class="avatar-circle">U</div>
-          <span>Local User</span>
-        </div>
-        <button class="icon-btn" title="Settings">
-          <i data-lucide="settings" style="width: 18px; height: 18px;"></i>
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <!-- Top Navigation -->
-      <nav class="top-nav">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <button class="toggle-sidebar-btn" id="expandSidebarBtn" style="display: none;" title="Open sidebar">
-            <i data-lucide="panel-left" style="width: 18px; height: 18px;"></i>
-          </button>
-          <div class="model-selector">
-            Qwen 2.5 (7B)
-            <i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i>
+        <div class="d-flex gap-3 align-items-center">
+          <div class="lang-switcher d-flex gap-1 p-1 rounded-pill">
+            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="en" title="English">🇬🇧</button>
+            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="hu" title="Magyar">🇭🇺</button>
+            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="et" title="Eesti">🇪🇪</button>
+          </div>
+          <div class="theme-switcher d-flex gap-1 p-1 rounded-pill">
+            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="light" title="Light mode">
+              <i class="bi bi-sun-fill me-1"></i> <span data-i18n="theme_light">Light</span>
+            </button>
+            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="dark" title="Dark mode">
+              <i class="bi bi-moon-stars-fill me-1"></i> <span data-i18n="theme_dark">Dark</span>
+            </button>
+            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="chrome" title="Chrome style">
+              <i class="bi bi-google me-1"></i> <span data-i18n="theme_chrome">Chrome</span>
+            </button>
           </div>
         </div>
-      </nav>
+      </header>
 
-      <!-- Chat Container -->
-      <div class="chat-container" id="chatContainer">
-        <div class="chat-max-width" id="chatMaxWidth">
-          <!-- Empty State (Welcome Screen) -->
-          <div class="empty-state" id="emptyState">
-            <div class="empty-logo">Q</div>
-            <h2 class="empty-title">How can I help you today?</h2>
-            
-            <div class="suggestions-grid">
-              <div class="suggestion-card" data-prompt="Create a weekly full-body workout plan.">
-                <div class="suggestion-title">Create a workout plan</div>
-                <div class="suggestion-desc">for weekly full-body training</div>
-              </div>
-              <div class="suggestion-card" data-prompt="Explain quantum computing in simple terms for a child.">
-                <div class="suggestion-title">Explain quantum computing</div>
-                <div class="suggestion-desc">for a 10-year old child</div>
-              </div>
-              <div class="suggestion-card" data-prompt="Write a Python script to request data from an API and save it as a JSON file.">
-                <div class="suggestion-title">Help me debug or write a script</div>
-                <div class="suggestion-desc">in Python using standard libraries</div>
-              </div>
-              <div class="suggestion-card" data-prompt="Draft a polite email asking my manager for constructive feedback on my recent project.">
-                <div class="suggestion-title">Draft an email</div>
-                <div class="suggestion-desc">asking my manager for feedback</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Active Message Feed -->
-          <div id="messageFeed" style="display: flex; flex-direction: column; gap: 24px; width: 100%;"></div>
-        </div>
-      </div>
-
-      <!-- Input Footer -->
-      <footer class="input-area-wrapper">
-        <div class="chat-max-width">
-          <form id="promptForm">
-            <div class="input-container">
-              <textarea
-                aria-label="Message Qwen..."
-                id="promptInput"
-                class="chat-textarea"
-                placeholder="Message Qwen..."
-                rows="1"
-                required
-              ></textarea>
-              <button type="submit" class="icon-btn send-btn" id="submitBtn">
-                <i data-lucide="arrow-up" style="width: 18px; height: 18px;"></i>
+      <!-- Main Chat Area -->
+      <div class="d-flex flex-grow-1 overflow-hidden">
+        <div class="glass-panel chat-card d-flex w-100 overflow-hidden" style="border-radius: 0; border: none;">
+          <!-- Sidebar -->
+          <aside class="chat-sidebar collapsed" id="chat-sidebar">
+            <div class="chat-sidebar-header d-flex justify-content-between align-items-center p-3 border-bottom border-secondary-subtle">
+              <button class="new-chat-btn btn btn-sm rounded px-3 py-2 w-100 text-start d-flex align-items-center gap-2" id="newChatBtn">
+                <i class="bi bi-plus-lg"></i>
+                <span data-i18n="btn_new_chat">New Chat</span>
+              </button>
+              <button class="icon-btn ms-2" id="collapseSidebarBtn" title="Hide history">
+                <i class="bi bi-layout-sidebar"></i>
               </button>
             </div>
-          </form>
-          <div class="disclaimer">
-            Qwen can make mistakes. Verify important info.
+            <div class="chat-sidebar-scroll p-2">
+              <div class="chat-sidebar-group-title px-2 py-1 text-uppercase text-muted small fw-bold" data-i18n="sidebar_recent">
+                Recent
+              </div>
+              <div id="chatHistoryList" class="d-flex flex-column gap-1 mt-1">
+                <div class="chat-sidebar-item active-chat-item px-2 py-2 rounded d-flex align-items-center" id="currentChatTab">
+                  <i class="bi bi-chat-square-text me-2"></i>
+                  <span data-i18n="chat_current">Current Chat</span>
+                </div>
+              </div>
+            </div>
+            <div class="chat-sidebar-footer p-3 border-top border-secondary-subtle d-flex align-items-center justify-content-between">
+              <div class="user-profile d-flex align-items-center gap-2">
+                <div class="avatar-circle">U</div>
+                <span class="small fw-medium" data-i18n="user_local">Local User</span>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main Chat -->
+          <div class="chat-main d-flex flex-column flex-grow-1">
+            <!-- Chat Top Nav -->
+            <nav class="chat-top-nav d-flex align-items-center justify-content-between px-3 py-2 border-bottom border-secondary-subtle">
+              <div class="d-flex align-items-center gap-2">
+                <div class="chat-model-selector-container position-relative">
+                  <button
+                    class="chat-model-selector d-flex align-items-center gap-1 px-2 py-1 rounded cursor-pointer border-0"
+                    id="modelSelectorBtn"
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-label="Model selector"
+                  >
+                    <span class="small fw-semibold" id="active-model-name">Qwen 2.5 (7B)</span>
+                    <i class="bi bi-chevron-down small" style="font-size: 0.75rem"></i>
+                  </button>
+                  <div
+                    class="chat-model-dropdown glass-panel d-none position-absolute mt-1 p-1 rounded"
+                    id="modelDropdownMenu"
+                    style="z-index: 1050; min-width: 160px; top: 100%; left: 0;"
+                  >
+                    <div class="chat-dropdown-item active px-3 py-2 rounded small cursor-pointer" data-model="qwen2.5:7b">
+                      qwen2.5:7b
+                    </div>
+                    <div class="chat-dropdown-item px-3 py-2 rounded small cursor-pointer" data-model="qwen2.5:14b">
+                      qwen2.5:14b
+                    </div>
+                    <div class="dropdown-divider my-1 border-bottom border-secondary-subtle"></div>
+                    <div class="chat-dropdown-item px-3 py-2 rounded small cursor-pointer d-flex align-items-center gap-2" id="configure-api-btn">
+                      <i class="bi bi-gear-fill text-muted"></i>
+                      <span data-i18n="menu_settings">Settings...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </nav>
+
+            <!-- Message List -->
+            <div class="chat-container flex-grow-1 overflow-y-auto px-3 py-3" id="chatContainer">
+              <div class="chat-max-width">
+                <!-- Welcome Screen -->
+                <div class="chat-empty-state d-flex flex-column align-items-center justify-content-center text-center my-4" id="emptyState">
+                  <div class="chat-empty-logo d-flex align-items-center justify-content-center rounded-circle mb-3">Q</div>
+                  <h4 class="chat-empty-title fw-bold mb-4" data-i18n="chat_empty_title">How can I help today?</h4>
+                </div>
+                <!-- Active message feed -->
+                <div id="messageFeed" class="d-flex flex-column gap-3 w-100"></div>
+              </div>
+            </div>
+
+            <!-- Input Footer -->
+            <footer class="chat-input-area-wrapper px-3 pb-3 border-top border-secondary-subtle pt-3">
+              <div class="chat-max-width">
+                <form id="promptForm">
+                  <div class="chat-input-container d-flex align-items-end p-2 rounded-4">
+                    <button type="button" class="icon-btn me-2 mb-1" id="expandSidebarBtn" title="Show history">
+                      <i class="bi bi-layout-sidebar"></i>
+                    </button>
+                    <textarea
+                      aria-label="Ask something..."
+                      id="promptInput"
+                      class="chat-textarea flex-grow-1 border-0 bg-transparent px-2"
+                      placeholder="Ask something..."
+                      data-i18n-placeholder="chat_input_placeholder"
+                      rows="1"
+                      required
+                    ></textarea>
+                    <button
+                      type="submit"
+                      class="send-btn btn rounded-circle p-1 d-flex align-items-center justify-content-center"
+                      id="submitBtn"
+                      title="Send"
+                    >
+                      <i class="bi bi-arrow-up-short" style="font-size: 1.35rem; line-height: 1"></i>
+                    </button>
+                  </div>
+                </form>
+                <div class="chat-disclaimer text-center mt-2 text-muted" style="font-size: 0.7rem" data-i18n="chat_disclaimer">
+                  The AI can make mistakes. Verify important information!
+                </div>
+              </div>
+            </footer>
           </div>
         </div>
-      </footer>
-    </main>
+      </div>
+    </div>
 
-    <!-- Dependencies -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.379.0/dist/umd/lucide.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <!-- API Config Modal -->
+    <div class="custom-modal-overlay d-none" id="apiConfigModal">
+      <div class="custom-modal glass-panel p-4 rounded-4 shadow">
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary-subtle">
+          <h5 class="m-0 fw-bold" data-i18n="modal_title">Server Settings</h5>
+          <button type="button" class="btn-close-custom" id="close-api-modal-btn">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="mb-3">
+          <label for="api-url-input" class="form-label text-muted small fw-semibold mb-1" data-i18n="modal_api_url">Prompt API URL</label>
+          <input type="url" class="form-control rounded-pill px-3" id="api-url-input" placeholder="http://localhost:5000/prompt" />
+          <div class="form-text text-muted px-2" style="font-size: 0.72rem">
+            Local Flask backend (e.g. http://localhost:5000/prompt) or direct Ollama (e.g. http://localhost:11434/api/chat).
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="model-name-input" class="form-label text-muted small fw-semibold mb-1" data-i18n="modal_model_name">Model Name</label>
+          <input type="text" class="form-control rounded-pill px-3" id="model-name-input" placeholder="qwen2.5:7b" />
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-2 border-top border-secondary-subtle">
+          <button type="button" class="btn btn-sm btn-secondary rounded-pill px-3" id="cancel-api-modal-btn" data-i18n="btn_cancel">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" id="save-api-config-btn" data-i18n="btn_save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/script.js"></script>
   </body>
 </html>
