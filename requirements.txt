@@ -1,5 +1,10 @@
+chromadb
+ddgs
 flask
+flask-cors
+gevent
+gunicorn
 langchain
 langchain-ollama
-ddgs
 langgraph
+ollama

@@ -1,6 +1,9 @@
 from flask import logging
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 import json
+import uuid
+import chromadb
+import ollama as ollama_client
 from langchain_ollama import ChatOllama
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, AIMessageChunk
@@ -12,7 +15,54 @@ import urllib.parse
 
 app = Flask(__name__)
 
-# Initialize the LLM and the tools
+# ---------------------------------------------------------------------------
+# ChromaDB persistent memory
+# ---------------------------------------------------------------------------
+CHROMA_PATH = "./chroma_memory"
+EMBED_MODEL = "nomic-embed-text"
+
+chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+memory_collection = chroma_client.get_or_create_collection(
+    name="conversation_history",
+    metadata={"hnsw:space": "cosine"}
+)
+
+
+def get_embedding(text: str) -> list[float]:
+    """Generate an embedding vector using Ollama."""
+    response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
+    return response["embedding"]
+
+
+def save_memory(user_msg: str, assistant_msg: str):
+    """Save a conversation turn to the vector store."""
+    content = f"User: {user_msg}\nAssistant: {assistant_msg}"
+    embedding = get_embedding(content)
+    memory_collection.add(
+        documents=[content],
+        embeddings=[embedding],
+        metadatas=[{"role": "dialogue_turn"}],
+        ids=[str(uuid.uuid4())]
+    )
+
+
+def query_relevant_memories(query: str, n_results: int = 3) -> list[str]:
+    """Retrieve semantically relevant past conversation turns from ChromaDB."""
+    if memory_collection.count() == 0:
+        return []
+    query_vector = get_embedding(query)
+    results = memory_collection.query(
+        query_embeddings=[query_vector],
+        n_results=min(n_results, memory_collection.count())
+    )
+    if results and "documents" in results and results["documents"]:
+        return results["documents"][0]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Initialize the LLM and tools
+# ---------------------------------------------------------------------------
 llm = ChatOllama(model="qwen2.5:7b", base_url="http://localhost:11434")
 
 
@@ -45,6 +95,9 @@ tools = [duckduckgo_search_tool, get_current_weather]
 agent = create_agent(llm, tools=tools)
 
 
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -61,10 +114,32 @@ def handle_prompt():
             logging.info(f"Received prompt: {prompt}")
             messages_data = [{"role": "user", "content": prompt}]
 
+        # Extract the latest user message for memory retrieval / persistence
+        latest_user_msg = ""
+        for msg in reversed(messages_data):
+            if msg.get("role") == "user":
+                latest_user_msg = msg.get("content", "")
+                break
+
+        # Retrieve relevant memories and build the system prompt
+        memories = query_relevant_memories(latest_user_msg) if latest_user_msg else []
+        system_content = (
+            "You are a very smart and helpful AI assistant. "
+            "When the user asks for information (e.g. weather, news, facts), you MUST use the "
+            "appropriate tool to retrieve the data. Analyze the results and return the ACTUAL DATA "
+            "to the user! NEVER say 'you can find it at this link' or 'search for it', instead give "
+            "a concrete and precise answer based on the data."
+        )
+        if memories:
+            context_str = "\n---\n".join(memories)
+            system_content += (
+                "\n\nHere are relevant details from previous conversations with the user:\n"
+                f"{context_str}\n"
+                "Use these if they are relevant to the current question."
+            )
+
         # Convert simple dicts to LangChain message objects
-        lc_messages = [
-            SystemMessage(content="You are a very smart and helpful AI assistant. When the user asks for information (e.g. weather, news, facts), you MUST use the appropriate tool to retrieve the data. Analyze the results and return the ACTUAL DATA to the user! NEVER say 'you can find it at this link' or 'search for it', instead give a concrete and precise answer based on the data.")
-        ]
+        lc_messages = [SystemMessage(content=system_content)]
         for msg in messages_data:
             role = msg.get("role")
             content = msg.get("content", "")
@@ -75,12 +150,16 @@ def handle_prompt():
             elif role == "system":
                 lc_messages.append(SystemMessage(content=content))
 
+        # Collect the full assistant reply so we can persist it after streaming
+        full_reply_parts: list[str] = []
+
         def generate():
             try:
                 for msg_chunk, metadata in agent.stream({"messages": lc_messages}, stream_mode="messages"):
                     if metadata.get("langgraph_node") in ["agent", "model"]:
                         if isinstance(msg_chunk, AIMessageChunk):
                             if msg_chunk.content:
+                                full_reply_parts.append(msg_chunk.content)
                                 yield (json.dumps({
                                     "message": {"content": msg_chunk.content},
                                     "done": False
@@ -106,6 +185,10 @@ def handle_prompt():
                                             "message": {"content": tool_msg},
                                             "done": False
                                         }) + "\n").encode("utf-8")
+
+                # Persist the conversation turn to memory
+                if latest_user_msg and full_reply_parts:
+                    save_memory(latest_user_msg, "".join(full_reply_parts))
 
                 yield (json.dumps({
                     "message": {"content": ""},
