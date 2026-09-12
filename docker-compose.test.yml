@@ -1,0 +1,29 @@
+# docker-compose.yml  –  TEST environment
+# Usage: docker compose -f docker-compose.test.yml up --build
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test          # uses the "test" stage
+    image: local-llm:test
+    container_name: local-llm-test
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      OLLAMA_HOST: http://host.docker.internal:11434
+    volumes:
+      # Bind-mount source for hot-reload during development
+      - .:/app
+      # Persist ChromaDB data between container restarts
+      - chroma_test:/app/chroma_memory
+    extra_hosts:
+      # Allows container to reach Ollama on the host
+      - "host.docker.internal:host-gateway"
+    restart: "no"
+
+volumes:
+  chroma_test:
