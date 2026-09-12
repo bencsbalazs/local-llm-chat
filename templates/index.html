@@ -30,28 +30,28 @@
   <body>
     <div class="llm-app-wrapper d-flex flex-column" style="height: 100vh;">
       <!-- Header -->
-      <header class="d-flex justify-content-between align-items-center px-4 py-2 border-bottom border-secondary-subtle header-container flex-shrink-0">
+      <header class="d-flex justify-content-between align-items-center px-4 header-container flex-shrink-0" style="height: 52px;">
         <div class="d-flex align-items-center gap-3">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-robot fs-4 text-primary logo-icon"></i>
-            <span class="fs-5 fw-bold" data-i18n="app_title">Local LLM Chat</span>
+          <div class="header-logo-icon">
+            <i class="bi bi-robot"></i>
           </div>
+          <span class="header-title" data-i18n="app_title">Local LLM Chat</span>
         </div>
-        <div class="d-flex gap-3 align-items-center">
-          <div class="lang-switcher d-flex gap-1 p-1 rounded-pill">
-            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="en" title="English">🇬🇧</button>
-            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="hu" title="Magyar">🇭🇺</button>
-            <button class="btn btn-sm rounded-pill px-2 lang-btn" data-lang-val="et" title="Eesti">🇪🇪</button>
+        <div class="d-flex gap-2 align-items-center">
+          <div class="lang-switcher">
+            <button class="lang-btn" data-lang-val="en" title="English">🇬🇧</button>
+            <button class="lang-btn" data-lang-val="hu" title="Magyar">🇭🇺</button>
+            <button class="lang-btn" data-lang-val="et" title="Eesti">🇪🇪</button>
           </div>
-          <div class="theme-switcher d-flex gap-1 p-1 rounded-pill">
-            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="light" title="Light mode">
-              <i class="bi bi-sun-fill me-1"></i> <span data-i18n="theme_light">Light</span>
+          <div class="theme-switcher">
+            <button class="theme-btn" data-theme-val="light" title="Light mode">
+              <i class="bi bi-sun-fill"></i><span data-i18n="theme_light">Light</span>
             </button>
-            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="dark" title="Dark mode">
-              <i class="bi bi-moon-stars-fill me-1"></i> <span data-i18n="theme_dark">Dark</span>
+            <button class="theme-btn" data-theme-val="dark" title="Dark mode">
+              <i class="bi bi-moon-stars-fill"></i><span data-i18n="theme_dark">Dark</span>
             </button>
-            <button class="btn btn-sm rounded-pill px-3 theme-btn" data-theme-val="chrome" title="Chrome style">
-              <i class="bi bi-google me-1"></i> <span data-i18n="theme_chrome">Chrome</span>
+            <button class="theme-btn" data-theme-val="chrome" title="Chrome style">
+              <i class="bi bi-google"></i><span data-i18n="theme_chrome">Chrome</span>
             </button>
           </div>
         </div>
