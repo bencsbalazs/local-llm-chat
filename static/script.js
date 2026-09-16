@@ -306,32 +306,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function addAssistantPlaceholder() {
-        const id = 'assistant_' + Date.now();
-        messageFeed.insertAdjacentHTML('beforeend', `
-            <div class="message-wrapper assistant" id="${id}">
-                <div class="avatar-circle qwen-avatar flex-shrink-0">Q</div>
-                <div class="message-content flex-grow-1">
-                    <span class="sender-name">Qwen</span>
-                    <div class="message-bubble"></div>
-                </div>
-            </div>
-        `);
-        return id;
-    }
-
     function showLoadingIndicator() {
         const id = 'loading_' + Date.now();
         messageFeed.insertAdjacentHTML('beforeend', `
             <div class="message-wrapper assistant" id="${id}">
                 <div class="avatar-circle qwen-avatar flex-shrink-0">Q</div>
-                <div class="message-content">
+                <div class="message-content flex-grow-1">
                     <span class="sender-name">Qwen</span>
-                    <div class="typing-indicator">
+                    <div class="typing-indicator" id="${id}_dots">
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
                     </div>
+                    <div class="thinking-text" id="${id}_thinking"></div>
+                    <div class="message-bubble" id="${id}_bubble" style="display:none;"></div>
                 </div>
             </div>
         `);
@@ -393,12 +381,14 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => {
             if (!response.ok) throw new Error('Server connection error');
-            document.getElementById(loadingId)?.remove();
-            assistantMessageId = addAssistantPlaceholder();
-            const bubbleElement = document.querySelector(`#${assistantMessageId} .message-bubble`);
+            const dotsEl = document.getElementById(loadingId + '_dots');
+            const thinkingEl = document.getElementById(loadingId + '_thinking');
+            const bubbleEl = document.getElementById(loadingId + '_bubble');
+            assistantMessageId = loadingId;
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = '';
+            let responseStarted = false;
 
             function readChunk() {
                 return reader.read().then(({ done, value }) => {
@@ -423,15 +413,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             const data = JSON.parse(trimmedLine);
                             if (data.error) {
-                                bubbleElement.insertAdjacentHTML('beforeend', `<p class="error-msg">${escapeHtml(data.error)}</p>`);
+                                if (!responseStarted) {
+                                    dotsEl && (dotsEl.style.display = 'none');
+                                    thinkingEl && (thinkingEl.style.display = 'none');
+                                    bubbleEl && (bubbleEl.style.display = '');
+                                    responseStarted = true;
+                                }
+                                bubbleEl && bubbleEl.insertAdjacentHTML('beforeend', `<p class="error-msg">${escapeHtml(data.error)}</p>`);
                             } else {
                                 const content = data.message?.content || data.response;
                                 if (content) {
                                     assistantText += content;
-                                    bubbleElement.innerHTML = marked.parse(assistantText);
-                                    bubbleElement.querySelectorAll('pre code').forEach(block => {
-                                        if (typeof hljs !== 'undefined') hljs.highlightElement(block);
-                                    });
+                                    if (!responseStarted) {
+                                        // Show thinking text below the dots
+                                        if (thinkingEl) {
+                                            thinkingEl.textContent = assistantText;
+                                        }
+                                        // Once we have a meaningful amount, switch to full bubble view
+                                        if (assistantText.length > 120) {
+                                            responseStarted = true;
+                                            dotsEl && (dotsEl.style.display = 'none');
+                                            thinkingEl && (thinkingEl.style.display = 'none');
+                                            if (bubbleEl) {
+                                                bubbleEl.style.display = '';
+                                                bubbleEl.innerHTML = marked.parse(assistantText);
+                                                bubbleEl.querySelectorAll('pre code').forEach(block => {
+                                                    if (typeof hljs !== 'undefined') hljs.highlightElement(block);
+                                                });
+                                            }
+                                        }
+                                    } else {
+                                        if (bubbleEl) {
+                                            bubbleEl.innerHTML = marked.parse(assistantText);
+                                            bubbleEl.querySelectorAll('pre code').forEach(block => {
+                                                if (typeof hljs !== 'undefined') hljs.highlightElement(block);
+                                            });
+                                        }
+                                    }
                                 }
                             }
                         } catch (err) {
@@ -453,17 +471,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (assistantText) {
                     conversationHistory.push({ role: 'assistant', content: assistantText });
                     saveCurrentConversationToHistory(prompt);
-                    const bubbleElement = document.querySelector(`#${assistantMessageId} .message-bubble`);
-                    if (bubbleElement) {
-                        bubbleElement.insertAdjacentHTML('beforeend', '<div class="generation-stopped-badge"><i class="bi bi-exclamation-octagon me-1"></i>Stopped</div>');
+                    const bubbleEl = document.querySelector(`#${assistantMessageId} .message-bubble`);
+                    if (bubbleEl) {
+                        bubbleEl.insertAdjacentHTML('beforeend', '<div class="generation-stopped-badge"><i class="bi bi-exclamation-octagon me-1"></i>Stopped</div>');
                     }
                 } else if (assistantMessageId) {
                     document.getElementById(assistantMessageId)?.remove();
                 }
             } else if (assistantMessageId) {
-                const bubbleElement = document.querySelector(`#${assistantMessageId} .message-bubble`);
-                if (bubbleElement) {
-                    bubbleElement.insertAdjacentHTML('beforeend', `<p class="error-msg">Error: ${error.message || 'Unknown error'}</p>`);
+                const bubbleEl = document.querySelector(`#${assistantMessageId} .message-bubble`);
+                if (bubbleEl) {
+                    bubbleEl.style.display = '';
+                    bubbleEl.insertAdjacentHTML('beforeend', `<p class="error-msg">Error: ${error.message || 'Unknown error'}</p>`);
                 }
             } else {
                 addAssistantMessage(`<p class="error-msg">Error: ${error.message || 'Unknown error'}</p>`);
