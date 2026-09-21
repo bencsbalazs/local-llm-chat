@@ -2,6 +2,14 @@
 // Utility
 // ==========================================
 function escapeHtml(text) {
+    if (text == null) return '';
+    if (typeof text !== 'string') {
+        try {
+            text = typeof text === 'object' ? JSON.stringify(text) : String(text);
+        } catch (e) {
+            text = String(text);
+        }
+    }
     return text
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -313,12 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="avatar-circle qwen-avatar flex-shrink-0">Q</div>
                 <div class="message-content flex-grow-1">
                     <span class="sender-name">Qwen</span>
+                    <ul class="states-list list-unstyled ms-2 mb-2" id="${id}_states" style="font-size: 0.9em; color: var(--text-muted);"></ul>
                     <div class="typing-indicator" id="${id}_dots">
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
                     </div>
-                    <div class="thinking-text" id="${id}_thinking"></div>
                     <div class="message-bubble" id="${id}_bubble" style="display:none;"></div>
                 </div>
             </div>
@@ -382,7 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(response => {
             if (!response.ok) throw new Error('Server connection error');
             const dotsEl = document.getElementById(loadingId + '_dots');
-            const thinkingEl = document.getElementById(loadingId + '_thinking');
             const bubbleEl = document.getElementById(loadingId + '_bubble');
             assistantMessageId = loadingId;
             const reader = response.body.getReader();
@@ -415,40 +422,32 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.error) {
                                 if (!responseStarted) {
                                     dotsEl && (dotsEl.style.display = 'none');
-                                    thinkingEl && (thinkingEl.style.display = 'none');
                                     bubbleEl && (bubbleEl.style.display = '');
                                     responseStarted = true;
                                 }
-                                bubbleEl && bubbleEl.insertAdjacentHTML('beforeend', `<p class="error-msg">${escapeHtml(data.error)}</p>`);
+                                const errorText = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+                                bubbleEl && bubbleEl.insertAdjacentHTML('beforeend', `<p class="error-msg">${escapeHtml(errorText)}</p>`);
+                            } else if (data.state) {
+                                const statesEl = document.getElementById(assistantMessageId + '_states');
+                                if (statesEl) {
+                                    statesEl.insertAdjacentHTML('beforeend', `<li><i class="bi bi-check2-circle me-1 text-success"></i> ${escapeHtml(data.state)}</li>`);
+                                }
                             } else {
                                 const content = data.message?.content || data.response;
                                 if (content) {
-                                    assistantText += content;
+                                    assistantText += typeof content === 'string' ? content : JSON.stringify(content);
                                     if (!responseStarted) {
-                                        // Show thinking text below the dots
-                                        if (thinkingEl) {
-                                            thinkingEl.textContent = assistantText;
-                                        }
-                                        // Once we have a meaningful amount, switch to full bubble view
-                                        if (assistantText.length > 120) {
-                                            responseStarted = true;
-                                            dotsEl && (dotsEl.style.display = 'none');
-                                            thinkingEl && (thinkingEl.style.display = 'none');
-                                            if (bubbleEl) {
-                                                bubbleEl.style.display = '';
-                                                bubbleEl.innerHTML = marked.parse(assistantText);
-                                                bubbleEl.querySelectorAll('pre code').forEach(block => {
-                                                    if (typeof hljs !== 'undefined') hljs.highlightElement(block);
-                                                });
-                                            }
-                                        }
-                                    } else {
+                                        responseStarted = true;
+                                        dotsEl && (dotsEl.style.display = 'none');
                                         if (bubbleEl) {
-                                            bubbleEl.innerHTML = marked.parse(assistantText);
-                                            bubbleEl.querySelectorAll('pre code').forEach(block => {
-                                                if (typeof hljs !== 'undefined') hljs.highlightElement(block);
-                                            });
+                                            bubbleEl.style.display = '';
                                         }
+                                    }
+                                    if (bubbleEl) {
+                                        bubbleEl.innerHTML = marked.parse(assistantText);
+                                        bubbleEl.querySelectorAll('pre code').forEach(block => {
+                                            if (typeof hljs !== 'undefined') hljs.highlightElement(block);
+                                        });
                                     }
                                 }
                             }

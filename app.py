@@ -155,40 +155,33 @@ def handle_prompt():
 
         def generate():
             try:
-                for msg_chunk, metadata in agent.stream({"messages": lc_messages}, stream_mode="messages"):
-                    if metadata.get("langgraph_node") in ["agent", "model"]:
-                        if isinstance(msg_chunk, AIMessageChunk):
-                            if msg_chunk.content:
-                                full_reply_parts.append(msg_chunk.content)
-                                yield (json.dumps({
-                                    "message": {"content": msg_chunk.content},
-                                    "done": False
-                                }) + "\n").encode("utf-8")
+                yield (json.dumps({"state": "thinking"}) + "\n").encode("utf-8")
+                
+                final_answer = ""
+                for event in agent.stream({"messages": lc_messages}, stream_mode="updates"):
+                    if "model" in event:
+                        msg = event["model"]["messages"][-1]
+                        if hasattr(msg, "tool_calls") and msg.tool_calls:
+                            for tc in msg.tool_calls:
+                                if tc["name"] == "duckduckgo_search_tool":
+                                    yield (json.dumps({"state": "search on the internet"}) + "\n").encode("utf-8")
+                                elif tc["name"] == "get_current_weather":
+                                    yield (json.dumps({"state": "checking weather"}) + "\n").encode("utf-8")
+                                else:
+                                    yield (json.dumps({"state": f"using {tc['name']}"}) + "\n").encode("utf-8")
+                        else:
+                            final_answer = msg.content
+                            yield (json.dumps({"state": "create the plan"}) + "\n").encode("utf-8")
+                            yield (json.dumps({
+                                "message": {"content": final_answer},
+                                "done": False
+                            }) + "\n").encode("utf-8")
+                            
+                    elif "tools" in event:
+                        yield (json.dumps({"state": "processing the findings"}) + "\n").encode("utf-8")
 
-                            if hasattr(msg_chunk, "tool_call_chunks") and msg_chunk.tool_call_chunks:
-                                for tcc in msg_chunk.tool_call_chunks:
-                                    if tcc.get("index") is not None and tcc.get("name"):
-                                        tool_name = tcc.get("name", "tool")
-                                        if tool_name == "duckduckgo_search_tool":
-                                            status_text = "Using web search..."
-                                            icon = "bi-globe"
-                                        elif tool_name == "get_current_weather":
-                                            status_text = "Fetching weather..."
-                                            icon = "bi-cloud-sun"
-                                        else:
-                                            status_text = f"Using tool: {tool_name}..."
-                                            icon = "bi-gear-wide-connected"
-
-                                        tool_msg = f'\n\n<div class="d-flex align-items-center my-2"><div class="badge rounded-pill shadow-sm" style="background-color: var(--panel-bg); border: 1px solid var(--accent-color); color: var(--text-color); padding: 6px 12px; font-weight: 500; font-size: 0.85rem;"><i class="bi {icon} me-2" style="color: var(--accent-color);"></i>{status_text}</div></div>\n\n'
-
-                                        yield (json.dumps({
-                                            "message": {"content": tool_msg},
-                                            "done": False
-                                        }) + "\n").encode("utf-8")
-
-                # Persist the conversation turn to memory
-                if latest_user_msg and full_reply_parts:
-                    save_memory(latest_user_msg, "".join(full_reply_parts))
+                if latest_user_msg and final_answer:
+                    save_memory(latest_user_msg, final_answer)
 
                 yield (json.dumps({
                     "message": {"content": ""},
