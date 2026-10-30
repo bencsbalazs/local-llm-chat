@@ -1,17 +1,18 @@
-from flask import logging
-from flask import Flask, request, render_template, jsonify, Response, stream_with_context
+import logging
 import json
 import uuid
+import urllib.request
+import urllib.parse
+from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 import chromadb
 import ollama as ollama_client
 from langchain_ollama import ChatOllama
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, AIMessageChunk
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from ddgs import DDGS
 
-import urllib.request
-import urllib.parse
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -30,50 +31,65 @@ memory_collection = chroma_client.get_or_create_collection(
 
 def get_embedding(text: str) -> list[float]:
     """Generate an embedding vector using Ollama."""
-    response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
-    return response["embedding"]
+    try:
+        response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
+        return response.get("embedding", [])
+    except Exception as e:
+        logging.warning(f"Error generating embedding: {e}")
+        return []
 
 
 def save_memory(user_msg: str, assistant_msg: str):
     """Save a conversation turn to the vector store."""
-    content = f"User: {user_msg}\nAssistant: {assistant_msg}"
-    embedding = get_embedding(content)
-    memory_collection.add(
-        documents=[content],
-        embeddings=[embedding],
-        metadatas=[{"role": "dialogue_turn"}],
-        ids=[str(uuid.uuid4())]
-    )
+    try:
+        content = f"User: {user_msg}\nAssistant: {assistant_msg}"
+        embedding = get_embedding(content)
+        if embedding:
+            memory_collection.add(
+                documents=[content],
+                embeddings=[embedding],
+                metadatas=[{"role": "dialogue_turn"}],
+                ids=[str(uuid.uuid4())]
+            )
+    except Exception as e:
+        logging.warning(f"Could not save conversation turn to ChromaDB: {e}")
 
 
 def query_relevant_memories(query: str, n_results: int = 3) -> list[str]:
     """Retrieve semantically relevant past conversation turns from ChromaDB."""
-    if memory_collection.count() == 0:
+    try:
+        if memory_collection.count() == 0:
+            return []
+        query_vector = get_embedding(query)
+        if not query_vector:
+            return []
+        results = memory_collection.query(
+            query_embeddings=[query_vector],
+            n_results=min(n_results, memory_collection.count())
+        )
+        if results and "documents" in results and results["documents"]:
+            return results["documents"][0]
         return []
-    query_vector = get_embedding(query)
-    results = memory_collection.query(
-        query_embeddings=[query_vector],
-        n_results=min(n_results, memory_collection.count())
-    )
-    if results and "documents" in results and results["documents"]:
-        return results["documents"][0]
-    return []
+    except Exception as e:
+        logging.warning(f"Could not query ChromaDB memory: {e}")
+        return []
 
 
 # ---------------------------------------------------------------------------
-# Initialize the LLM and tools
+# Tools with robust exception handling
 # ---------------------------------------------------------------------------
-llm = ChatOllama(model="qwen2.5:7b", base_url="http://localhost:11434")
-
-
 @tool
 def duckduckgo_search_tool(query: str) -> str:
     """A search engine. Useful for when you need to answer questions about current events."""
-    with DDGS() as ddgs:
-        results = list(ddgs.text(query, max_results=5))
-        if not results:
-            return "No good DuckDuckGo Search Result was found"
-        return "\n".join([f"[{r['title']}]({r['href']})\n{r['body']}" for r in results])
+    try:
+        with DDGS(timeout=10) as ddgs:
+            results = list(ddgs.text(query, max_results=5))
+            if not results:
+                return f"No good DuckDuckGo search results found for query: '{query}'. Please answer using your existing knowledge or ask for clarification."
+            return "\n".join([f"[{r['title']}]({r['href']})\n{r['body']}" for r in results])
+    except Exception as e:
+        logging.info(f"DuckDuckGo search encountered an issue: {e}")
+        return f"DuckDuckGo search could not retrieve results ({str(e)}). Proceed using your existing knowledge."
 
 
 @tool
@@ -91,8 +107,64 @@ def get_current_weather(location: str) -> str:
 
 tools = [duckduckgo_search_tool, get_current_weather]
 
-# Create the ReAct agent
-agent = create_agent(llm, tools=tools)
+# ---------------------------------------------------------------------------
+# Dynamic Model Discovery & Agent Management
+# ---------------------------------------------------------------------------
+DEFAULT_MODEL = "qwen2.5:7b"
+_agents_cache: dict[str, any] = {}
+
+
+def get_installed_llms() -> list[str]:
+    """Retrieve locally installed LLM chat models from Ollama."""
+    try:
+        res = ollama_client.list()
+        models_list = getattr(res, "models", None)
+        if models_list is None and isinstance(res, dict):
+            models_list = res.get("models", [])
+
+        llms = []
+        for m in models_list:
+            name = getattr(m, "model", None) or (m.get("model") if isinstance(m, dict) else str(m))
+            details = getattr(m, "details", None) or (m.get("details", {}) if isinstance(m, dict) else {})
+            family = getattr(details, "family", "") or (details.get("family", "") if isinstance(details, dict) else "")
+
+            # Filter out embedding models
+            if "embed" in name.lower() or "nomic-bert" in str(family).lower() or "bge" in name.lower():
+                continue
+            llms.append(name)
+
+        return llms if llms else [DEFAULT_MODEL]
+    except Exception as e:
+        logging.error(f"Error fetching Ollama models: {e}")
+        return [DEFAULT_MODEL]
+
+
+def get_default_model(installed: list[str]) -> str:
+    """Return default model, preferring qwen."""
+    if not installed:
+        return DEFAULT_MODEL
+    # First priority: qwen2.5:7b
+    if "qwen2.5:7b" in installed:
+        return "qwen2.5:7b"
+    # Second priority: any model with qwen in its name
+    for m in installed:
+        if "qwen" in m.lower():
+            return m
+    return installed[0]
+
+
+def get_agent(model_name: str):
+    """Retrieve or create an agent configured for the specified model."""
+    installed = get_installed_llms()
+    default_m = get_default_model(installed)
+    if not model_name or model_name not in installed:
+        model_name = default_m
+
+    if model_name not in _agents_cache:
+        model_llm = ChatOllama(model=model_name, base_url="http://localhost:11434")
+        _agents_cache[model_name] = create_agent(model_llm, tools=tools)
+
+    return _agents_cache[model_name]
 
 
 # ---------------------------------------------------------------------------
@@ -100,19 +172,41 @@ agent = create_agent(llm, tools=tools)
 # ---------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html")
+    installed = get_installed_llms()
+    default_m = get_default_model(installed)
+    return render_template("index.html", installed_models=installed, default_model=default_m)
+
+
+@app.route("/api/models", methods=["GET"])
+def list_models():
+    installed = get_installed_llms()
+    default_m = get_default_model(installed)
+    return jsonify({
+        "models": installed,
+        "default": default_m
+    })
 
 
 @app.route("/prompt", methods=["POST"])
 def handle_prompt():
     try:
+        model_name = None
         if request.is_json:
-            data = request.get_json()
+            data = request.get_json() or {}
             messages_data = data.get("messages", [])
+            model_name = data.get("model")
         else:
             prompt = request.form.get("prompt", "")
+            model_name = request.form.get("model")
             logging.info(f"Received prompt: {prompt}")
             messages_data = [{"role": "user", "content": prompt}]
+
+        installed_models = get_installed_llms()
+        default_model = get_default_model(installed_models)
+        if not model_name or model_name not in installed_models:
+            model_name = default_model
+
+        agent = get_agent(model_name)
 
         # Extract the latest user message for memory retrieval / persistence
         latest_user_msg = ""
@@ -124,11 +218,13 @@ def handle_prompt():
         # Retrieve relevant memories and build the system prompt
         memories = query_relevant_memories(latest_user_msg) if latest_user_msg else []
         system_content = (
-            "You are a very smart and helpful AI assistant. "
-            "When the user asks for information (e.g. weather, news, facts), you MUST use the "
-            "appropriate tool to retrieve the data. Analyze the results and return the ACTUAL DATA "
-            "to the user! NEVER say 'you can find it at this link' or 'search for it', instead give "
-            "a concrete and precise answer based on the data."
+            "You are a very smart, helpful, and friendly AI assistant. "
+            "Answer the user's questions clearly and accurately. "
+            "You have access to tools: duckduckgo_search_tool (for web search, current news, or real-time info) "
+            "and get_current_weather (for weather conditions). "
+            "Use tools when current facts or external real-time data are needed. "
+            "When using tools, analyze the findings and return the actual facts to the user. "
+            "For general questions, coding, explanations, and casual conversation, answer directly."
         )
         if memories:
             context_str = "\n---\n".join(memories)
@@ -150,9 +246,6 @@ def handle_prompt():
             elif role == "system":
                 lc_messages.append(SystemMessage(content=content))
 
-        # Collect the full assistant reply so we can persist it after streaming
-        full_reply_parts: list[str] = []
-
         def generate():
             try:
                 yield (json.dumps({"state": "thinking"}) + "\n").encode("utf-8")
@@ -170,8 +263,13 @@ def handle_prompt():
                                 else:
                                     yield (json.dumps({"state": f"using {tc['name']}"}) + "\n").encode("utf-8")
                         else:
-                            final_answer = msg.content
-                            yield (json.dumps({"state": "create the plan"}) + "\n").encode("utf-8")
+                            content = msg.content
+                            if isinstance(content, list):
+                                final_answer = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
+                            else:
+                                final_answer = str(content or "")
+
+                            yield (json.dumps({"state": "responding"}) + "\n").encode("utf-8")
                             yield (json.dumps({
                                 "message": {"content": final_answer},
                                 "done": False
@@ -189,6 +287,7 @@ def handle_prompt():
                 }) + "\n").encode("utf-8")
 
             except Exception as e:
+                logging.exception(f"Error calling agent: {e}")
                 yield (json.dumps({
                     "error": f"Error calling agent: {str(e)}",
                     "done": True
@@ -215,3 +314,4 @@ def add_header(response):
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+

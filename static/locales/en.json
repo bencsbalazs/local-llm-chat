@@ -8,6 +8,7 @@
   "chat_current": "Current Chat",
   "user_local": "Local User",
   "menu_settings": "Settings...",
+  "model_label": "Model:",
   "chat_empty_title": "How can I help today?",
   "chat_input_placeholder": "Ask something...",
   "chat_disclaimer": "The AI can make mistakes. Verify important information!",

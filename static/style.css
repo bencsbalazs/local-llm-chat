@@ -722,6 +722,34 @@ body {
     background: var(--tile-bg-hover);
 }
 
+.chat-model-select {
+    background-color: var(--dropdown-bg);
+    color: var(--text-color);
+    border: var(--panel-border);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.chat-model-select:hover {
+    border-color: var(--accent-color);
+}
+
+.chat-model-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.2);
+    background-color: var(--dropdown-bg);
+    color: var(--text-color);
+    outline: none;
+}
+
+.chat-model-select option {
+    background-color: var(--dropdown-bg);
+    color: var(--tile-text);
+}
+
 /* Model Dropdown Menu */
 .chat-model-dropdown {
     background: var(--dropdown-bg) !important;

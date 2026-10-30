@@ -92,35 +92,25 @@
             <!-- Chat Top Nav -->
             <nav class="chat-top-nav d-flex align-items-center justify-content-between px-3 py-2 border-bottom border-secondary-subtle">
               <div class="d-flex align-items-center gap-2">
-                <div class="chat-model-selector-container position-relative">
-                  <button
-                    class="chat-model-selector d-flex align-items-center gap-1 px-2 py-1 rounded cursor-pointer border-0"
-                    id="modelSelectorBtn"
-                    type="button"
-                    aria-haspopup="listbox"
-                    aria-label="Model selector"
-                  >
-                    <span class="small fw-semibold" id="active-model-name">Qwen 2.5 (7B)</span>
-                    <i class="bi bi-chevron-down small" style="font-size: 0.75rem"></i>
-                  </button>
-                  <div
-                    class="chat-model-dropdown glass-panel d-none position-absolute mt-1 p-1 rounded"
-                    id="modelDropdownMenu"
-                    style="z-index: 1050; min-width: 160px; top: 100%; left: 0;"
-                  >
-                    <div class="chat-dropdown-item active px-3 py-2 rounded small cursor-pointer" data-model="qwen2.5:7b">
-                      qwen2.5:7b
-                    </div>
-                    <div class="chat-dropdown-item px-3 py-2 rounded small cursor-pointer" data-model="qwen2.5:14b">
-                      qwen2.5:14b
-                    </div>
-                    <div class="dropdown-divider my-1 border-bottom border-secondary-subtle"></div>
-                    <div class="chat-dropdown-item px-3 py-2 rounded small cursor-pointer d-flex align-items-center gap-2" id="configure-api-btn">
-                      <i class="bi bi-gear-fill text-muted"></i>
-                      <span data-i18n="menu_settings">Settings...</span>
-                    </div>
-                  </div>
-                </div>
+                <label for="modelSelect" class="d-flex align-items-center gap-2 small text-muted mb-0 fw-medium">
+                  <i class="bi bi-cpu text-primary"></i>
+                  <span class="d-none d-sm-inline" data-i18n="model_label">Model:</span>
+                </label>
+                <select
+                  id="modelSelect"
+                  class="form-select form-select-sm chat-model-select rounded-pill px-3 py-1"
+                  aria-label="Model"
+                  style="width: auto; min-width: 175px;"
+                >
+                  {% for m in installed_models %}
+                  <option value="{{ m }}" {% if m == default_model %}selected{% endif %}>{{ m }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button class="icon-btn" id="configure-api-btn" title="Settings" data-i18n-title="menu_settings">
+                  <i class="bi bi-gear-fill"></i>
+                </button>
               </div>
             </nav>
 
@@ -129,7 +119,7 @@
               <div class="chat-max-width">
                 <!-- Welcome Screen -->
                 <div class="chat-empty-state d-flex flex-column align-items-center justify-content-center text-center my-4" id="emptyState">
-                  <div class="chat-empty-logo d-flex align-items-center justify-content-center rounded-circle mb-3">Q</div>
+                  <div class="chat-empty-logo d-flex align-items-center justify-content-center rounded-circle mb-3" id="emptyLogo">Q</div>
                   <h4 class="chat-empty-title fw-bold mb-4" data-i18n="chat_empty_title">How can I help today?</h4>
                 </div>
                 <!-- Active message feed -->

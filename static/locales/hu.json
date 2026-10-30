@@ -8,6 +8,7 @@
   "chat_current": "Aktuális csevegés",
   "user_local": "Helyi felhasználó",
   "menu_settings": "Beállítások...",
+  "model_label": "Modell:",
   "chat_empty_title": "Miben segíthetek ma?",
   "chat_input_placeholder": "Kérdezz valamit...",
   "chat_disclaimer": "Az AI hibázhat. Ellenőrizd a fontos információkat!",

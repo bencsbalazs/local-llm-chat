@@ -96,9 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatSidebar = document.getElementById('chat-sidebar');
     const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
     const expandSidebarBtn = document.getElementById('expandSidebarBtn');
-    const modelSelectorBtn = document.getElementById('modelSelectorBtn');
-    const modelDropdownMenu = document.getElementById('modelDropdownMenu');
-    const activeModelName = document.getElementById('active-model-name');
+    const modelSelect = document.getElementById('modelSelect');
     const configureApiBtn = document.getElementById('configure-api-btn');
     const apiConfigModal = document.getElementById('apiConfigModal');
     const closeApiModalBtn = document.getElementById('close-api-modal-btn');
@@ -114,6 +112,87 @@ document.addEventListener('DOMContentLoaded', () => {
     const emptyState = document.getElementById('emptyState');
     const messageFeed = document.getElementById('messageFeed');
 
+    function getModelDisplayName(name) {
+        if (!name) return 'Qwen';
+        if (name.toLowerCase().includes('qwen')) return 'Qwen';
+        if (name.toLowerCase().includes('llama')) return 'Llama';
+        if (name.toLowerCase().includes('deepseek')) return 'DeepSeek';
+        if (name.toLowerCase().includes('mistral')) return 'Mistral';
+        const base = name.split(':')[0];
+        return base.charAt(0).toUpperCase() + base.slice(1);
+    }
+
+    function updateModelUI(name) {
+        const displayName = getModelDisplayName(name);
+        const emptyLogo = document.getElementById('emptyLogo');
+        if (emptyLogo) {
+            emptyLogo.textContent = displayName.charAt(0).toUpperCase();
+        }
+    }
+
+    function syncModelSelection(selected) {
+        if (!selected) return;
+        modelName = selected;
+        localStorage.setItem('llm-model-name', modelName);
+        if (modelSelect) {
+            let hasOption = false;
+            for (let i = 0; i < modelSelect.options.length; i++) {
+                if (modelSelect.options[i].value === modelName) {
+                    hasOption = true;
+                    break;
+                }
+            }
+            if (!hasOption) {
+                const opt = document.createElement('option');
+                opt.value = modelName;
+                opt.textContent = modelName;
+                modelSelect.appendChild(opt);
+            }
+            modelSelect.value = modelName;
+        }
+        if (modelNameInput) {
+            modelNameInput.value = modelName;
+        }
+        updateModelUI(modelName);
+    }
+
+    function loadModels() {
+        fetch('/api/models')
+            .then(res => res.json())
+            .then(data => {
+                if (!data || !data.models || data.models.length === 0) return;
+                if (modelSelect) {
+                    modelSelect.innerHTML = '';
+                    data.models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m;
+                        modelSelect.appendChild(opt);
+                    });
+                }
+                const saved = localStorage.getItem('llm-model-name');
+                if (saved && data.models.includes(saved)) {
+                    syncModelSelection(saved);
+                } else if (data.default) {
+                    syncModelSelection(data.default);
+                } else {
+                    syncModelSelection(data.models[0]);
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching models:', err);
+                if (modelSelect && modelSelect.value) {
+                    syncModelSelection(modelSelect.value);
+                }
+            });
+    }
+
+    if (modelSelect) {
+        modelSelect.addEventListener('change', (e) => {
+            syncModelSelection(e.target.value);
+        });
+    }
+
     // Sidebar Collapsing
     collapseSidebarBtn.addEventListener('click', () => {
         chatSidebar.classList.add('collapsed');
@@ -123,25 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
     expandSidebarBtn.addEventListener('click', () => {
         chatSidebar.classList.remove('collapsed');
         expandSidebarBtn.style.display = 'none';
-    });
-
-    // Model Selector Dropdown
-    activeModelName.textContent = modelName;
-    modelSelectorBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        modelDropdownMenu.classList.toggle('d-none');
-    });
-
-    document.addEventListener('click', () => modelDropdownMenu.classList.add('d-none'));
-
-    document.querySelectorAll('.chat-dropdown-item[data-model]').forEach(item => {
-        item.addEventListener('click', () => {
-            modelName = item.dataset.model;
-            localStorage.setItem('llm-model-name', modelName);
-            activeModelName.textContent = modelName;
-            document.querySelectorAll('.chat-dropdown-item[data-model]').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-        });
     });
 
     // Modal Config
@@ -159,10 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveApiConfigBtn.addEventListener('click', () => {
         apiUrl = apiUrlInput.value.trim() || '/prompt';
-        modelName = modelNameInput.value.trim() || 'qwen2.5:7b';
+        const chosenModel = modelNameInput.value.trim() || 'qwen2.5:7b';
         localStorage.setItem('llm-api-url', apiUrl);
-        localStorage.setItem('llm-model-name', modelName);
-        activeModelName.textContent = modelName;
+        syncModelSelection(chosenModel);
         closeModal();
     });
 
@@ -300,11 +359,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addAssistantMessage(htmlContent) {
+        const displayName = getModelDisplayName(modelName);
+        const initial = displayName.charAt(0).toUpperCase();
         messageFeed.insertAdjacentHTML('beforeend', `
             <div class="message-wrapper assistant">
-                <div class="avatar-circle qwen-avatar flex-shrink-0">Q</div>
+                <div class="avatar-circle qwen-avatar flex-shrink-0">${initial}</div>
                 <div class="message-content flex-grow-1">
-                    <span class="sender-name">Qwen</span>
+                    <span class="sender-name">${escapeHtml(displayName)}</span>
                     <div class="message-bubble">${htmlContent}</div>
                 </div>
             </div>
@@ -316,11 +377,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showLoadingIndicator() {
         const id = 'loading_' + Date.now();
+        const displayName = getModelDisplayName(modelName);
+        const initial = displayName.charAt(0).toUpperCase();
         messageFeed.insertAdjacentHTML('beforeend', `
             <div class="message-wrapper assistant" id="${id}">
-                <div class="avatar-circle qwen-avatar flex-shrink-0">Q</div>
+                <div class="avatar-circle qwen-avatar flex-shrink-0">${initial}</div>
                 <div class="message-content flex-grow-1">
-                    <span class="sender-name">Qwen</span>
+                    <span class="sender-name">${escapeHtml(displayName)}</span>
                     <ul class="states-list list-unstyled ms-2 mb-2" id="${id}_states" style="font-size: 0.9em; color: var(--text-muted);"></ul>
                     <div class="typing-indicator" id="${id}_dots">
                         <div class="typing-dot"></div>
@@ -497,5 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Init
+    loadModels();
+    syncModelSelection(modelName);
     renderHistoryList();
 });
